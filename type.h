@@ -23,3 +23,9 @@ typedef struct proc
 	struct proc *joinPtr;
 	int stack[SSIZE];
 }PROC;
+
+typedef struct mutex{
+	int lock; // Estado de desbloqueo = 0. Bloloqueo = 1;
+	PROC *owner; // Apuntador al dueño del mutex
+	PROC *queue; // FIFO queue of BLOCKED waiting PROCs
+}MUTEX;

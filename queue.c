@@ -34,7 +34,7 @@ int delFromQueue(PROC **queue, int event)
 		q->next = q->next->next;
 	else if(q->event == event)
 	{
-		q = NULL;
+		q = 0;
 	}
 }
 int printList(char *name, PROC *p)

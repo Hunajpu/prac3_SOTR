@@ -5,7 +5,7 @@
  * Programing Project: User-Level Threads
  * 
  * To compile and run the base code under Linux, enter
- * 	gcc -m32 t.c ts.s
+ * 	gcc -m32 t3.c ts.s
  * Then run a.out. While running the program, the reader may enter the
  * comands
  * 'c': create new task
@@ -22,6 +22,7 @@
 #define ERR_NOPID 5
 #define ERR_DEADLOCK 6
 #define ERR_MUTEX_LOCK 7
+#define N 4
 
 PROC proc[NPROC];
 PROC *freeList;
@@ -29,13 +30,17 @@ PROC *readyQueue;
 PROC *sleepList;
 PROC *running;
 
-
-int do_exit();
 void tswitch();
 #include "queue.c"
 #include "wait.c"
+#include "mutex.c"
+
+int A[N][N]; //Matriz A
+MUTEX *mp;   // mutex de sincronización
+int total;	 // valor final
 int create(void (*f)(), void *parm);
 void func(void *parm);
+
 
 int init()
 {
@@ -48,8 +53,6 @@ int init()
 		p->priority = 0;
 		p->status = FREE;
 		p->event = 0;
-		p->joinPid = 0;
-		p->joinPtr = 0;
 		p->next = p+1;
 	}
 	proc[NPROC-1].next = 0;
@@ -57,77 +60,76 @@ int init()
 	freeList = &proc[0];
 	readyQueue = 0;
 	sleepList = 0;
-	// Crear P0
 	running = p = dequeue(&freeList);
-	p->status=READY;
+	p->status = READY;
 	p->priority = 0;
 	printList("freeList", freeList);
-	printf("init complete\n");
-}
-
-int do_create()
-{
-	int pid = create(func, (void *)(running->pid));
-	return pid;
-}
-
-int do_switch()
-{
-	tswitch();
-}
-
-int do_exit()
-{
-	texit(running->pid);
-}
-
-int do_join()
-{
-	int status, ic;
-	char c;
 	
-	printf("enter a pid to join with : ");
-	c = getchar(); getchar();
-	ic = c - '0';
-	join(ic, &status);
+	printf("P0: initialize A matrix\n");
+	for(i=0; i<N;i++)
+	{
+		for(j=0; j<N; j++)
+		{
+			A[i][j] = i*N + j + 1;
+		}
+	}
+	
+	// Imprimir la matriz
+	for(i=0; i<N; i++)
+	{
+		for(j=0; j<N; j++)
+		{
+			printf("%4d ", A[i][j]);
+		}
+		printf("\n");
+	}
+	
+	mp = mutex_create();
+	total = 0;
+}
+
+int myexit()
+{
+	texit(0);
 }
 
 void task1(void *parm)
 {
-	int pid[2];
+	int pid[N];
 	int i, status;
-	printf("task 1 running\n");
-	for(i=0; i<2; i++)
+	int me = running->pid;
+	printf("task %d: create working tasks : ", me);
+	for(i=0; i<N; i++)
 	{
-		pid[i]=create(func, (void*)running->pid);
+		pid[i]=create(func, (void*)i);
+		printf("%d ", pid[i]);
 	}
-	join(5, &status);
-	for(i=0; i<2; i++)
+	printf(" to compute matrix row sums\n");
+	for(i=0; i<N; i++)
 	{
-		pid[i] = join(pid[i], &status);
-		printf("task%d joined with task%d: status = %d\n", running->pid, pid[i], status);
+		printf("task %d tries to join with task %d\n", running->pid, pid[i]);
+		join(pid[i], &status);
 	}
+	
+	printf("task %d : total = %d\n", me, total);
 }
 
 void func(void *parm)
 {
-	int c;
-	//printf("task%d start: parm = %d\n", running->pid, parm);
-	while(1)
+	int i, row, s;
+	int me = running->pid;
+	row = (int)parm;
+	printf("task %d computes sum of row %d\n", me, row);
+	s = 0;
+	for(i=0; i<N; i++)
 	{
-		printList("readyQueue", readyQueue);
-		printf("task%d running: ", running->pid);
-		printf("enter a key [c|s|q|j] : ");
-		
-		c = getchar(); getchar();
-		switch(c)
-		{
-			case 'c' : do_create(); break;
-			case 's' : do_switch(); break;
-			case 'q' : do_exit(); break;
-			case 'j' : do_join(); break;
-		}
+		s += A[row][i];
 	}
+	printf("task %d update total with %d\n", me, s);
+	mutex_lock(mp);
+	total += s;
+	printf("[total = %d] ", total);
+	mutex_unlock(mp);
 }
 
 int create(void (*f)(), void *parm)
@@ -136,7 +138,7 @@ int create(void (*f)(), void *parm)
 	PROC *p = dequeue(&freeList);
 	if(!p)
 	{
-		printf("create failed\n");
+		printf("fork failed\n");
 		return -1;
 	}
 	p->status = READY;
@@ -147,12 +149,12 @@ int create(void (*f)(), void *parm)
 	for(i=1; i<13; i++)
 		p->stack[SSIZE-i] = 0;
 	p->stack[SSIZE-1]= (int)parm;
-	p->stack[SSIZE-2]= (int)do_exit;
+	p->stack[SSIZE-2]= (int)myexit;
 	p->stack[SSIZE-3]= (int)f;
 	p->ksp = (int)&p->stack[SSIZE-12];
 	enqueue(&readyQueue, p);
 	//printList("readyQueue", readyQueue);
-	printf("task %d created a new task %d\n", running->pid, p->pid);
+	//printf("task %d created a new task %d\n", running->pid, p->pid);
 	return p->pid;
 }
 
@@ -162,7 +164,6 @@ int main()
 	printf("Welcome to the MT User-Level Threads System\n");
 	init();
 	create((void *)task1,0);
-	printf("P0 switch to P1 \n");
 	tswitch();
 	printf("All tasks ended: P0 loops\n");
 	while(1);
