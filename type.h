@@ -29,3 +29,9 @@ typedef struct mutex{
 	PROC *owner; // Apuntador al dueño del mutex
 	PROC *queue; // FIFO queue of BLOCKED waiting PROCs
 }MUTEX;
+
+typedef struct semaphore{
+	int value; // > 0 entonces hay recursos disponibles
+	PROC *queue;
+}SEMAPHORE;
+

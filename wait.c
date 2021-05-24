@@ -42,7 +42,7 @@ int texit(int status)
 		running->status = FREE;
 		running->priority = 0;
 		enqueue(&freeList,running);
-		//printf("task%d: no joiner=>exit as FREE: ", running->pid);
+		printf("task%d: no joiner=>exit as FREE: ", running->pid);
 	}
 	else // Alguna tarea esta esperando que esta termine
 	{
@@ -50,7 +50,7 @@ int texit(int status)
 		running->status = ZOMBIE;
 		twakeup(running->pid);
 	}
-	//printf("task%d exited with status = %d\n", running->pid, status);
+	printf("task%d exited with status = %d\n", running->pid, status);
 	tswitch();
 }
 
@@ -85,7 +85,7 @@ int join(int targetPid, int *status)
 		}
 		if(noPID)
 		{
-			//printf("task%d try to join with task%d. No pid = %d\n", running->pid, targetPid,targetPid);
+			printf("task%d try to join with task%d. No pid = %d\n", running->pid, targetPid,targetPid);
 			return ERR_NOPID;
 		}
 	
@@ -121,7 +121,7 @@ int join(int targetPid, int *status)
 			enqueue(&freeList, p);
 			return p->pid;
 		}
-		//printf("task%d try to join with task%d: ", running->pid, p->pid);
+		printf("task%d try to join with task%d: ", running->pid, p->pid);
 		tsleep(targetPid);
 	}
 }

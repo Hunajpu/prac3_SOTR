@@ -33,7 +33,7 @@ int mutex_unlock(MUTEX *mp)
 	// El mutex esta bloqueado y el llamado lo hace el propietario
 	if(mp->queue == 0)
 	{
-		printf(" task %d mutex_unlock()\n", mp->owner->pid);
+		printf("task %d mutex_unlock()\n", mp->owner->pid);
 		mp->lock = 0;
 		mp->owner = 0;
 	}
